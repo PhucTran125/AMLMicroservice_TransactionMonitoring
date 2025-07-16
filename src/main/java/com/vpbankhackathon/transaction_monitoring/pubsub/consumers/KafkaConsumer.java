@@ -17,7 +17,6 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringRequest;
-import com.vpbankhackathon.transaction_monitoring.pubsub.producers.AlertCaseProducer;
 import com.vpbankhackathon.transaction_monitoring.pubsub.producers.RequestAckProducer;
 import com.vpbankhackathon.transaction_monitoring.service.TransactionMonitoringService;
 
@@ -29,9 +28,6 @@ public class KafkaConsumer {
 
     @Autowired
     RequestAckProducer requestAckProducer;
-
-    @Autowired
-    private AlertCaseProducer alertCaseProducer;
 
     @KafkaListener(topics = "transaction-monitoring-requests")
     public void listenTransactionRequestMsg(
@@ -46,8 +42,11 @@ public class KafkaConsumer {
                     + " (ID: " + event.getTransactionId() + ") from topic: " + topic
                     + ", partition: " + partition + ", offset: " + offset);
 
-            // Process and monitor transaction
+            // Create AML request and store to database
             transactionMonitoringService.processTransactionEvent(event);
+            requestAckProducer.sendMessage(event);
+
+            // Acknowledge message on successful processing
             acknowledgment.acknowledge();
             System.out.println("Message acknowledged successfully for transaction: " + event.getTransactionId());
 
