@@ -6,14 +6,21 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.vpbankhackathon.transaction_monitoring.models.dtos.*;
-import com.vpbankhackathon.transaction_monitoring.pubsub.producers.TransactionMonitoringResultProducer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.vpbankhackathon.transaction_monitoring.models.dtos.AlertEvent;
+import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionInfo;
+import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionListResponse;
+import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringRequest;
+import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringResponse;
+import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringResult;
 import com.vpbankhackathon.transaction_monitoring.models.entities.Transaction;
 import com.vpbankhackathon.transaction_monitoring.models.entities.TransactionEntity;
+import com.vpbankhackathon.transaction_monitoring.pubsub.producers.AlertCaseProducer;
+import com.vpbankhackathon.transaction_monitoring.pubsub.producers.RequestAckProducer;
+import com.vpbankhackathon.transaction_monitoring.pubsub.producers.TransactionMonitoringResultProducer;
 import com.vpbankhackathon.transaction_monitoring.repository.jpa.TransactionJpaRepository;
 import com.vpbankhackathon.transaction_monitoring.repository.neo4j.TransactionRepository;
 
@@ -28,6 +35,12 @@ public class TransactionMonitoringService {
 
     @Autowired
     private TransactionMonitoringResultProducer transactionMonitoringResultProducer;
+
+    @Autowired
+    private RequestAckProducer requestAckProducer;
+
+    @Autowired
+    private AlertCaseProducer alertCaseProducer;
 
     private static final long LARGE_TRANSACTION_THRESHOLD = 5000L;
     private static final int SMURFING_COUNT_THRESHOLD = 3;
@@ -59,6 +72,8 @@ public class TransactionMonitoringService {
                 .filter(t -> t.getTransactionAmount() < 1000L)
                 .count();
         if (smallTransactionCount > SMURFING_COUNT_THRESHOLD) {
+            transaction.setIsSuspiciousTransaction(true);
+            transactionJpaRepository.save(transaction);
             response.setStatus("FAIL");
             response.setReason("Potential smurfing detected: " + smallTransactionCount + " small transactions in 7 days");
             return response;
@@ -66,6 +81,8 @@ public class TransactionMonitoringService {
 
         // Large Transaction Detection
         if (transaction.getTransactionAmount() > LARGE_TRANSACTION_THRESHOLD) {
+            transaction.setIsSuspiciousTransaction(true);
+            transactionJpaRepository.save(transaction);
             response.setStatus("FAIL");
             response.setReason("Large transaction detected: Amount = " + transaction.getTransactionAmount());
             return response;
@@ -73,6 +90,8 @@ public class TransactionMonitoringService {
 
         // High-Risk Jurisdiction Detection
         if (HIGH_RISK_COUNTRIES.contains(transaction.getCountry())) {
+            transaction.setIsSuspiciousTransaction(true);
+            transactionJpaRepository.save(transaction);
             response.setStatus("FAIL");
             response.setReason("Transaction involves high-risk country: " + transaction.getCountry());
             return response;
@@ -84,6 +103,8 @@ public class TransactionMonitoringService {
             boolean isCircular = circularTransactions.stream()
                     .anyMatch(t -> t.getId().equals(id));
             if (isCircular) {
+                transaction.setIsSuspiciousTransaction(true);
+                transactionJpaRepository.save(transaction);
                 response.setStatus("FAIL");
                 response.setReason("Circular transaction detected");
                 return response;
@@ -107,34 +128,65 @@ public class TransactionMonitoringService {
         entity.setFromAccount(event.getSourceAccountNumber());
         entity.setToAccount(event.getDestinationAccountNumber());
         entity.setCountry(event.getCountry());
+        entity.setIsSuspiciousTransaction(false);
+        entity.setIsConfirmedMoneyLaundering(false);
         transactionJpaRepository.save(entity);
 
         // Save to Neo4j
         transactionRepository.saveTransactionWithRelationships(
-            event.getTransactionId(),
-            event.getAmount(),
-            event.getDate(),
-            event.getCountry(),
-            event.getSourceAccountNumber(),
-            event.getDestinationAccountNumber()
+                event.getTransactionId(),
+                event.getAmount(),
+                event.getDate().atOffset(java.time.ZoneOffset.UTC),
+                event.getCountry(),
+                event.getSourceAccountNumber(),
+                event.getDestinationAccountNumber(),
+                false,
+                false
         );
 
         // Monitor the transaction
         TransactionMonitoringResponse response = monitorTransaction(
-            event.getTransactionId(),
-            new TransactionMonitoringRequest()
+                event.getTransactionId(),
+                new TransactionMonitoringRequest()
         );
 
+        if ("FAIL".equals(response.getStatus())) {
+            // Update Neo4j with isSuspiciousTransaction
+            transactionRepository.saveTransactionWithRelationships(
+                    event.getTransactionId(),
+                    event.getAmount(),
+                    event.getDate().atOffset(java.time.ZoneOffset.UTC),
+                    event.getCountry(),
+                    event.getSourceAccountNumber(),
+                    event.getDestinationAccountNumber(),
+                    true,
+                    false
+            );
+
+            // Send alert to alertcasemanagement
+            AlertEvent alertEvent = new AlertEvent();
+            alertEvent.setTransactionId(event.getTransactionId());
+            alertEvent.setCustomerId(event.getCustomerId());
+            alertEvent.setAmount(event.getAmount());
+            alertEvent.setDate(event.getDate());
+            alertEvent.setCountry(event.getCountry());
+            alertEvent.setSourceAccountNumber(event.getSourceAccountNumber());
+            alertEvent.setDestinationAccountNumber(event.getDestinationAccountNumber());
+            alertEvent.setStatus("SUSPENDED");
+            alertEvent.setReason(response.getReason());
+            alertCaseProducer.sendMessage(alertEvent);
+            System.out.println("Alert sent for transaction: " + event.getTransactionId());
+        }
+
+        // Send monitoring result
         TransactionMonitoringResult result = new TransactionMonitoringResult();
         result.setTransactionId(event.getTransactionId());
-        if ("FAIL".equals(response.getStatus())) {
-            result.setStatus("SUSPENDED");
-            result.setReason(response.getReason());
-        } else {
-            result.setStatus("CLEAR");
-            result.setReason("");
-        }
+        result.setStatus("FAIL".equals(response.getStatus()) ? "SUSPENDED" : "CLEAR");
+        result.setReason(response.getReason());
         transactionMonitoringResultProducer.sendMessage(result);
+
+        // Gửi ack xác nhận đã xử lý message
+        requestAckProducer.sendMessage(event);
     }
 
     @Transactional("neo4jTransactionManager")

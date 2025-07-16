@@ -19,6 +19,8 @@ public class Transaction {
     private Long amount;
     private OffsetDateTime date;
     private String country;
+    private Boolean isSuspiciousTransaction = false;
+    private Boolean isConfirmedMoneyLaundering = false;
 
     @Relationship(type = "FROM_ACCOUNT", direction = Relationship.Direction.OUTGOING)
     private Account fromAccount;

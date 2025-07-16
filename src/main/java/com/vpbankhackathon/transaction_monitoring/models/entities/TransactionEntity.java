@@ -34,6 +34,12 @@ public class TransactionEntity {
     @Column(name = "toaccount")
     private Long toAccount;
 
+    @Column(name = "issuspicioustransaction")
+    private Boolean isSuspiciousTransaction = false;
+
+    @Column(name = "isconfirmedmoneylaundering")
+    private Boolean isConfirmedMoneyLaundering = false;
+
     public Long getTransactionAmount() {
         return transactionAmount;
     }
