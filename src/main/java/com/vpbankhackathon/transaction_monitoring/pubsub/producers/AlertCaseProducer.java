@@ -10,7 +10,7 @@ import com.vpbankhackathon.transaction_monitoring.models.dtos.AlertEvent;
 public class AlertCaseProducer {
 
     @Autowired
-    private KafkaTemplate<String, AlertEvent> kafkaTemplate;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     public void sendMessage(AlertEvent event) {
         try {

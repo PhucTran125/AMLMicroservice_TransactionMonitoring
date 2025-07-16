@@ -3,7 +3,6 @@ package com.vpbankhackathon.transaction_monitoring.configs;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -58,8 +57,8 @@ public class KafkaConfig {
 
         Map<String, Class<?>> idClassMapping = new HashMap<>();
         idClassMapping.put(
-            "com.vpbankhackathon.store_and_forward_service.models.dtos.TransactionMonitoringRequest",
-            com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringRequest.class
+                "com.vpbankhackathon.store_and_forward_service.models.dtos.TransactionMonitoringRequest",
+                com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringRequest.class
         );
 
         typeMapper.setIdClassMapping(idClassMapping);
