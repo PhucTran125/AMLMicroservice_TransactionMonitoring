@@ -88,14 +88,17 @@ CREATE TABLE user_sanctions (
 
 -- Tạo bảng alerts
 CREATE TABLE alerts (
-    id BIGINT PRIMARY KEY,
-    alertType VARCHAR(50),
-    userId BIGINT,
-    transactionId BIGINT,
-    alertStatus VARCHAR(20),
-    alertReason VARCHAR(255),
-    FOREIGN KEY (userId) REFERENCES users(id),
-    FOREIGN KEY (transactionId) REFERENCES transactions(id)
+    id BIGSERIAL PRIMARY KEY,  -- Tự động tăng (IDENTITY trong Java)
+    transaction_id BIGINT,
+    customer_id VARCHAR(100),
+    amount BIGINT,
+    date TIMESTAMP,
+    country VARCHAR(100),
+    sourceaccountnumber BIGINT,
+    destinationaccountnumber BIGINT,
+    status VARCHAR(50),
+    reason VARCHAR(255),
+    isconfirmedmoneylaundering BOOLEAN DEFAULT FALSE
 );
 
 -- Thêm dữ liệu vào bảng users
@@ -164,8 +167,32 @@ INSERT INTO user_sanctions (userId, sanctionId) VALUES
 (3, 1);
 
 -- Thêm dữ liệu vào bảng alerts
-INSERT INTO alerts (id, alertType, userId, transactionId, alertStatus, alertReason) VALUES
-(1, 'SMURFING', 1, 204, 'PENDING', 'Multiple small transactions detected'),
-(2, 'SUSPICIOUS_NETWORK', 5, 207, 'OPEN', 'High traffic to single destination account'),
-(3, 'LARGE_TRANSACTION', 5, 207, 'PENDING', 'Transaction exceeds threshold'),
-(4, 'HIGH_RISK_JURISDICTION', 3, 211, 'OPEN', 'Transaction involves high-risk country');
+INSERT INTO alerts (
+    transaction_id,
+    customer_id,
+    amount,
+    date,
+    country,
+    sourceaccountnumber,
+    destinationaccountnumber,
+    status,
+    reason,
+    isconfirmedmoneylaundering
+) VALUES
+-- Smurfing case
+(201, '1', 100, now() - interval '1 day', 'Vietnam', 101, 102, 'PENDING', 'Smurfing detected: small transactions in short time', false),
+
+-- Large transaction
+(207, '5', 20000, now() - interval '3 day', 'Vietnam', 104, 105, 'PENDING', 'Transaction exceeds threshold limit', false),
+
+-- Circular transaction
+(210, '1', 5000, now() - interval '1 day', 'Vietnam', 103, 101, 'INVESTIGATING', 'Circular transaction detected in customer accounts', false),
+
+-- High-risk country
+(211, '3', 3000, now() - interval '1 day', 'Iran', 104, 103, 'OPEN', 'Transaction from high-risk jurisdiction', true),
+
+-- Sanctioned user transaction
+(212, '3', 4000, now() - interval '2 day', 'North Korea', 105, 103, 'PENDING', 'Transaction involving sanctioned individual', true),
+
+-- PEP (Politically Exposed Person)
+(205, '2', 10000, now() - interval '1 day', 'Vietnam', 102, 105, 'PENDING', 'Large transaction involving PEP', false);

@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class TransactionMonitoringApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(TransactionMonitoringApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(TransactionMonitoringApplication.class, args);
+    }
 
 }
