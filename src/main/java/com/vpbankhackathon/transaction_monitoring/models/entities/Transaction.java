@@ -23,22 +23,8 @@ public class Transaction {
     private Boolean isConfirmedMoneyLaundering = false;
 
     @Relationship(type = "FROM_ACCOUNT", direction = Relationship.Direction.OUTGOING)
-    private Account fromAccount;
+    private Long fromAccount;
 
     @Relationship(type = "TO_ACCOUNT", direction = Relationship.Direction.OUTGOING)
-    private Account toAccount;
-//    @Id
-//    @GeneratedValue
-//    private String transactionId;
-//    private String customerId;
-//    private String customerName;
-//    private String customerIdentificationNumber;
-//    private double amount;
-//    private String currency;
-//    @Relationship(type = "FROM_ACCOUNT", direction = Relationship.Direction.OUTGOING)
-//    private String sourceAccountNumber;
-//    @Relationship(type = "TO_ACCOUNT", direction = Relationship.Direction.OUTGOING)
-//    private String destinationAccountNumber;
-//    private OffsetDateTime date;
-//    private Long timestamp;
+    private Long toAccount;
 }

@@ -1,3 +1,4 @@
+-- Xóa các bảng hiện có
 DROP TABLE IF EXISTS alerts CASCADE;
 DROP TABLE IF EXISTS user_sanctions CASCADE;
 DROP TABLE IF EXISTS user_peps CASCADE;
@@ -22,7 +23,7 @@ CREATE TABLE accounts (
     id BIGINT PRIMARY KEY,
     type VARCHAR(50),
     userId BIGINT,
-    accountNumber VARCHAR(50),
+    accountNumber BIGINT,
     FOREIGN KEY (userId) REFERENCES users(id)
 );
 
@@ -34,8 +35,8 @@ CREATE TABLE transactions (
     fromaccount BIGINT,
     toaccount BIGINT,
     country VARCHAR(100),
-    isSuspiciousTransaction BOOLEAN DEFAULT false,
-    isConfirmedMoneyLaundering BOOLEAN DEFAULT false,
+    issuspicioustransaction BOOLEAN DEFAULT false,
+    isconfirmedmoneylaundering BOOLEAN DEFAULT false,
     FOREIGN KEY (fromaccount) REFERENCES accounts(id),
     FOREIGN KEY (toaccount) REFERENCES accounts(id)
 );
@@ -88,9 +89,9 @@ CREATE TABLE user_sanctions (
 
 -- Tạo bảng alerts
 CREATE TABLE alerts (
-    id BIGSERIAL PRIMARY KEY,  -- Tự động tăng (IDENTITY trong Java)
+    id BIGSERIAL PRIMARY KEY,
     transaction_id BIGINT,
-    customer_id VARCHAR(100),
+    customer_id BIGINT,
     amount BIGINT,
     date TIMESTAMP,
     country VARCHAR(100),
@@ -103,60 +104,77 @@ CREATE TABLE alerts (
 
 -- Thêm dữ liệu vào bảng users
 INSERT INTO users (id, fullName, is_pep, is_sanctioned) VALUES
-(1, 'Nguyen Van A', false, false),
-(2, 'Le Thi B', true, false),
-(3, 'Tran Van C', false, true),
-(4, 'Pham Thi D', false, false),
-(5, 'Vo Van E', false, false);
+(1, 'Nguyễn Văn An', false, false),
+(2, 'Lê Thị Bình', true, false),
+(3, 'Trần Văn Cường', false, true),
+(4, 'Phạm Thị Dung', false, false),
+(5, 'Võ Văn Em', false, false);
 
 -- Thêm dữ liệu vào bảng accounts
 INSERT INTO accounts (id, type, userId, accountNumber) VALUES
-(101, 'personal', 1, 'AC001'),
-(102, 'business', 2, 'AC002'),
-(103, 'personal', 3, 'AC003'),
-(104, 'personal', 4, 'AC004'),
-(105, 'personal', 5, 'AC005');
+(101, 'personal', 1, 1234567890),
+(102, 'business', 2, 1234567891),
+(103, 'personal', 3, 1234567892),
+(104, 'personal', 4, 1234567893),
+(105, 'personal', 5, 1234567894);
 
 -- Thêm dữ liệu vào bảng transactions
--- Smurfing: nhiều giao dịch nhỏ từ account 101 đến 102 trong 1 tuần
-INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country) VALUES
-(201, 100, now() - interval '1 day', 101, 102, 'Vietnam'),
-(202, 200, now() - interval '2 day', 101, 102, 'Vietnam'),
-(203, 150, now() - interval '3 day', 101, 102, 'Vietnam'),
-(204, 120, now() - interval '4 day', 101, 102, 'Vietnam'),
--- Large transactions
-(205, 10000, now() - interval '1 day', 102, 105, 'Vietnam'),
-(206, 15000, now() - interval '2 day', 103, 105, 'Vietnam'),
-(207, 20000, now() - interval '3 day', 104, 105, 'Vietnam'),
--- Circular transactions: 101 -> 102 -> 103 -> 101
-(208, 5000, now() - interval '1 day', 101, 102, 'Vietnam'),
-(209, 5000, now() - interval '1 day', 102, 103, 'Vietnam'),
-(210, 5000, now() - interval '1 day', 103, 101, 'Vietnam'),
--- High-risk jurisdiction
-(211, 3000, now() - interval '1 day', 104, 103, 'Iran'),
-(212, 4000, now() - interval '2 day', 105, 103, 'North Korea');
+-- Case 1: Smurfing - Nhiều giao dịch nhỏ (< 10 triệu VND) từ account 101 đến 102 trong 7 ngày
+INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country, issuspicioustransaction) VALUES
+(201, 5000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 101, 102, 'Vietnam', true),
+(202, 6000000, CURRENT_TIMESTAMP - INTERVAL '2 day', 101, 102, 'Vietnam', true),
+(203, 7000000, CURRENT_TIMESTAMP - INTERVAL '3 day', 101, 102, 'Vietnam', true),
+(204, 8000000, CURRENT_TIMESTAMP - INTERVAL '4 day', 101, 102, 'Vietnam', true);
+
+-- Case 2: Large transactions - Giao dịch vượt quá 400 triệu VND
+INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country, issuspicioustransaction) VALUES
+(205, 500000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 102, 105, 'Vietnam', true),
+(206, 600000000, CURRENT_TIMESTAMP - INTERVAL '2 day', 103, 105, 'Vietnam', true),
+(207, 450000000, CURRENT_TIMESTAMP - INTERVAL '3 day', 104, 105, 'Vietnam', true);
+
+-- Case 3: Circular transactions - Giao dịch vòng tròn: 101 -> 102 -> 103 -> 101
+INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country, issuspicioustransaction) VALUES
+(208, 200000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 101, 102, 'Vietnam', true),
+(209, 200000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 102, 103, 'Vietnam', true),
+(210, 200000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 103, 101, 'Vietnam', true);
+
+-- Case 4: High-risk jurisdiction - Giao dịch liên quan đến Iran, North Korea, Syria
+INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country, issuspicioustransaction) VALUES
+(211, 150000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 104, 103, 'Iran', true),
+(212, 200000000, CURRENT_TIMESTAMP - INTERVAL '2 day', 105, 103, 'North Korea', true),
+(213, 180000000, CURRENT_TIMESTAMP - INTERVAL '3 day', 104, 105, 'Syria', true);
+
+-- Case 5: Sanctioned user - Giao dịch liên quan đến user bị trừng phạt (userId = 3)
+INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country, issuspicioustransaction) VALUES
+(214, 300000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 103, 104, 'Vietnam', true);
+
+-- Case 6: PEP - Giao dịch liên quan đến user là PEP (userId = 2)
+INSERT INTO transactions (id, transactionamount, date, fromaccount, toaccount, country, issuspicioustransaction) VALUES
+(215, 250000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 102, 105, 'Vietnam', true);
 
 -- Thêm dữ liệu vào bảng addresses
 INSERT INTO addresses (id, value, country) VALUES
-(1, '123 Đường A, Hà Nội', 'Vietnam'),
-(2, '456 Đường B, TP.HCM', 'Vietnam'),
+(1, '123 Đường Láng, Hà Nội', 'Vietnam'),
+(2, '456 Nguyễn Huệ, TP.HCM', 'Vietnam'),
 (3, '789 Street C, Tehran', 'Iran'),
-(4, '101 Street D, Pyongyang', 'North Korea');
+(4, '101 Street D, Pyongyang', 'North Korea'),
+(5, '202 Street E, Damascus', 'Syria');
 
 -- Thêm dữ liệu vào bảng user_addresses
 INSERT INTO user_addresses (userId, addressId) VALUES
 (1, 1),
 (2, 2),
 (3, 3),
-(4, 4);
+(4, 4),
+(5, 5);
 
 -- Thêm dữ liệu vào bảng peps
 INSERT INTO peps (id, name) VALUES
-(1, 'Le Thi B');
+(1, 'Lê Thị Bình');
 
 -- Thêm dữ liệu vào bảng sanctions
 INSERT INTO sanctions (id, name) VALUES
-(1, 'Tran Van C');
+(1, 'Trần Văn Cường');
 
 -- Thêm dữ liệu vào bảng user_peps
 INSERT INTO user_peps (userId, pepId) VALUES
@@ -179,20 +197,29 @@ INSERT INTO alerts (
     reason,
     isconfirmedmoneylaundering
 ) VALUES
--- Smurfing case
-(201, '1', 100, now() - interval '1 day', 'Vietnam', 101, 102, 'PENDING', 'Smurfing detected: small transactions in short time', false),
+-- Case 1: Smurfing
+(201, 1, 5000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 101, 102, 'PENDING', 'Smurfing detected: 4 small transactions in 7 days', false),
+(202, 1, 6000000, CURRENT_TIMESTAMP - INTERVAL '2 day', 'Vietnam', 101, 102, 'PENDING', 'Smurfing detected: 4 small transactions in 7 days', false),
+(203, 1, 7000000, CURRENT_TIMESTAMP - INTERVAL '3 day', 'Vietnam', 101, 102, 'PENDING', 'Smurfing detected: 4 small transactions in 7 days', false),
+(204, 1, 8000000, CURRENT_TIMESTAMP - INTERVAL '4 day', 'Vietnam', 101, 102, 'PENDING', 'Smurfing detected: 4 small transactions in 7 days', false),
 
--- Large transaction
-(207, '5', 20000, now() - interval '3 day', 'Vietnam', 104, 105, 'PENDING', 'Transaction exceeds threshold limit', false),
+-- Case 2: Large transactions
+(205, 2, 500000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 102, 105, 'PENDING', 'Large transaction: Amount exceeds 400,000,000 VND', false),
+(206, 3, 600000000, CURRENT_TIMESTAMP - INTERVAL '2 day', 'Vietnam', 103, 105, 'PENDING', 'Large transaction: Amount exceeds 400,000,000 VND', false),
+(207, 4, 450000000, CURRENT_TIMESTAMP - INTERVAL '3 day', 'Vietnam', 104, 105, 'PENDING', 'Large transaction: Amount exceeds 400,000,000 VND', false),
 
--- Circular transaction
-(210, '1', 5000, now() - interval '1 day', 'Vietnam', 103, 101, 'INVESTIGATING', 'Circular transaction detected in customer accounts', false),
+-- Case 3: Circular transactions
+(208, 1, 200000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 101, 102, 'INVESTIGATING', 'Circular transaction detected: 101 -> 102 -> 103 -> 101', false),
+(209, 2, 200000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 102, 103, 'INVESTIGATING', 'Circular transaction detected: 101 -> 102 -> 103 -> 101', false),
+(210, 3, 200000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 103, 101, 'INVESTIGATING', 'Circular transaction detected: 101 -> 102 -> 103 -> 101', false),
 
--- High-risk country
-(211, '3', 3000, now() - interval '1 day', 'Iran', 104, 103, 'OPEN', 'Transaction from high-risk jurisdiction', true),
+-- Case 4: High-risk jurisdiction
+(211, 4, 150000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Iran', 104, 103, 'OPEN', 'Transaction from high-risk jurisdiction: Iran', false),
+(212, 5, 200000000, CURRENT_TIMESTAMP - INTERVAL '2 day', 'North Korea', 105, 103, 'OPEN', 'Transaction from high-risk jurisdiction: North Korea', false),
+(213, 4, 180000000, CURRENT_TIMESTAMP - INTERVAL '3 day', 'Syria', 104, 105, 'OPEN', 'Transaction from high-risk jurisdiction: Syria', false),
 
--- Sanctioned user transaction
-(212, '3', 4000, now() - interval '2 day', 'North Korea', 105, 103, 'PENDING', 'Transaction involving sanctioned individual', true),
+-- Case 5: Sanctioned user
+(214, 3, 300000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 103, 104, 'PENDING', 'Transaction involving sanctioned individual: Trần Văn Cường', false),
 
--- PEP (Politically Exposed Person)
-(205, '2', 10000, now() - interval '1 day', 'Vietnam', 102, 105, 'PENDING', 'Large transaction involving PEP', false);
+-- Case 6: PEP
+(215, 2, 250000000, CURRENT_TIMESTAMP - INTERVAL '1 day', 'Vietnam', 102, 105, 'PENDING', 'Large transaction involving PEP: Lê Thị Bình', false);

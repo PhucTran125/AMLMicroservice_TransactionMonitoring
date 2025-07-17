@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import com.vpbankhackathon.transaction_monitoring.models.dtos.AlertEvent;
 
 @Component
-public class AlertCaseProducer {
+public class AlertCaseRequestProducer {
 
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;

@@ -9,10 +9,11 @@ import lombok.Data;
 @Node("TransactionAccount")
 @Data
 public class Account {
+
     @Id
     @GeneratedValue
     private Long id;
-    private String customerId;
+    private Long customerId;
     private String customerName;
     private String type;
     private String accountNumber; // Thêm trường accountNumber

@@ -18,7 +18,7 @@ import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitor
 import com.vpbankhackathon.transaction_monitoring.models.dtos.TransactionMonitoringResult;
 import com.vpbankhackathon.transaction_monitoring.models.entities.Transaction;
 import com.vpbankhackathon.transaction_monitoring.models.entities.TransactionEntity;
-import com.vpbankhackathon.transaction_monitoring.pubsub.producers.AlertCaseProducer;
+import com.vpbankhackathon.transaction_monitoring.pubsub.producers.AlertCaseRequestProducer;
 import com.vpbankhackathon.transaction_monitoring.pubsub.producers.RequestAckProducer;
 import com.vpbankhackathon.transaction_monitoring.pubsub.producers.TransactionMonitoringResultProducer;
 import com.vpbankhackathon.transaction_monitoring.repository.jpa.TransactionJpaRepository;
@@ -40,7 +40,7 @@ public class TransactionMonitoringService {
     private RequestAckProducer requestAckProducer;
 
     @Autowired
-    private AlertCaseProducer alertCaseProducer;
+    private AlertCaseRequestProducer alertCaseProducer;
 
     private static final long LARGE_TRANSACTION_THRESHOLD = 5000L;
     private static final int SMURFING_COUNT_THRESHOLD = 3;
@@ -219,8 +219,8 @@ public class TransactionMonitoringService {
                     info.setTransactionId(t.getId());
                     info.setAmount(t.getAmount());
                     info.setDate(t.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                    info.setFromAccountId(t.getFromAccount() != null ? t.getFromAccount().getId() : null);
-                    info.setToAccountId(t.getToAccount() != null ? t.getToAccount().getId() : null);
+                    info.setFromAccountId(t.getFromAccount());
+                    info.setToAccountId(t.getToAccount());
                     info.setCountry(t.getCountry());
                     transactionInfos.add(info);
                 }
@@ -305,8 +305,8 @@ public class TransactionMonitoringService {
                     info.setTransactionId(t.getId());
                     info.setAmount(t.getAmount());
                     info.setDate(t.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                    info.setFromAccountId(t.getFromAccount() != null ? t.getFromAccount().getId() : null);
-                    info.setToAccountId(t.getToAccount() != null ? t.getToAccount().getId() : null);
+                    info.setFromAccountId(t.getFromAccount());
+                    info.setToAccountId(t.getToAccount());
                     info.setCountry(t.getCountry());
                     return info;
                 })
