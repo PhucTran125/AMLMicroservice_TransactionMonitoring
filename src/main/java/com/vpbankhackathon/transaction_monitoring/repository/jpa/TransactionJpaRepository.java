@@ -15,7 +15,8 @@ import com.vpbankhackathon.transaction_monitoring.models.entities.TransactionEnt
 public interface TransactionJpaRepository extends JpaRepository<TransactionEntity, Long> {
 
     @Query("SELECT t FROM TransactionEntity t WHERE t.fromAccount = :fromAccountId AND t.toAccount = :toAccountId AND t.date >= :startTime AND t.date <= :endTime")
-    List<TransactionEntity> findTransactionsBetweenAccounts(Long fromAccountId, Long toAccountId, LocalDateTime startTime, LocalDateTime endTime);
+    List<TransactionEntity> findTransactionsBetweenAccounts(Long fromAccountId, Long toAccountId,
+            LocalDateTime startTime, LocalDateTime endTime);
 
     @Query("SELECT t FROM TransactionEntity t WHERE t.transactionAmount > :threshold")
     List<TransactionEntity> findLargeTransactions(Long threshold);

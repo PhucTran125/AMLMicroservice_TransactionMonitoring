@@ -40,8 +40,7 @@ CREATE TABLE account_openings (
     nationality VARCHAR(100),
     residential_address VARCHAR(255),
     status VARCHAR(50),
-    result VARCHAR(255),
-    FOREIGN KEY (customer_id) REFERENCES users(id)
+    result VARCHAR(255)
 );
 
 -- Tạo bảng transactions
@@ -72,9 +71,7 @@ CREATE TABLE transaction_transfers (
     date TIMESTAMP,
     country VARCHAR(100),
     status VARCHAR(50),
-    FOREIGN KEY (source_account_number) REFERENCES accounts(id),
-    FOREIGN KEY (destination_account_number) REFERENCES accounts(id),
-    FOREIGN KEY (customer_id) REFERENCES users(id)
+    result VARCHAR(255)
 );
 
 -- Tạo bảng addresses

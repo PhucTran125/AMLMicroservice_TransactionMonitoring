@@ -25,9 +25,8 @@ public class TransactionMonitoringResultProducer {
 
             CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(
                     topicName,
-                    tMResult.getTransactionId(),
-                    tMResult
-            );
+                    tMResult.getTransactionId().toString(),
+                    tMResult);
             future.whenComplete((result, ex) -> {
                 if (ex == null) {
                     System.out.println("Sent message for transaction=[" + tMResult.getTransactionId()
